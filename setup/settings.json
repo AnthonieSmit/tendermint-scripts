@@ -10,6 +10,7 @@
     {
       "name": "vidulum",
       "alias": "Vidulum",
+      "denom": "uvdl",
       "user": "vidulum",
       "group": "vidulum",
       "uid": 2500,
@@ -33,6 +34,7 @@
     {
       "name": "vidulum-test",
       "alias": "Vidulum Test",
+      "denom": "utvdl",
       "user": "vidulum",
       "group": "vidulum",
       "uid": 1500,
@@ -56,6 +58,7 @@
     {
       "name": "beezee",
       "alias": "BeeZee",
+      "denom": "ubze",
       "user": "bze",
       "group": "bze",
       "uid": 2501,
@@ -82,6 +85,7 @@
     {
       "name": "beezee-test",
       "alias": "BeeZee Test",
+      "denom": "utestbze",
       "user": "bze",
       "group": "bze",
       "uid": 1501,
