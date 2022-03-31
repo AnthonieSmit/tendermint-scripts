@@ -58,6 +58,7 @@ CONFIGFILE="settings.json"
 # Get information about this app.
 APP_NAME="$(jq -r '.app.name' $CONFIGFILE)"
 APP_VERSION="$(jq -r '.app.version' $CONFIGFILE)"
+MANAGED="This file is managed by $APP_NAME. Changed might get overwritten."
 
 # Do not restart the service by default.
 RESTART_SERVICE=0
@@ -188,6 +189,7 @@ C_URL=$(jq -r ".chains[$ID].url.$(uname -m)" $CONFIGFILE)
 C_GENESIS=$(jq -r ".chains[$ID].genesis" $CONFIGFILE)
 C_SEEDS=$(jq -r ".chains[$ID].seeds" $CONFIGFILE)
 C_PERSISTENT_PEERS=$(jq -r ".chains[$ID].persistent_peers" $CONFIGFILE)
+C_DENOM=$(jq -r ".chains[$ID].denom" $CONFIGFILE)
 
 # Check if there are extra profiles for the selected chain.
 if [ $(jq -r ".chains[$ID].profiles[0].name" $CONFIGFILE) != "null" ]
@@ -283,6 +285,7 @@ ensure_filemode "$C_HOME/bin" 750
 function generate_log_script() {
   cat <<EOF
 #! /usr/bin/env bash
+# $MANAGED
 
 # Tail journalctl logs for the current user.
 echo "Displaying logs. Press CTRL+C to quit."
@@ -290,31 +293,10 @@ journalctl -f
 EOF
 }
 
-# Ensure that log script is present.
-if [ -f "$C_HOME/bin/logs" ]
-then
-  FILE_CHECKSUM=$(md5sum "$C_HOME/bin/logs" | cut -f1 -d' ')
-  GEN_CHECKSUM=$(generate_log_script | md5sum | cut -f1 -d' ')
-
-  # Test if file needs to be updated.
-  if [ "$FILE_CHECKSUM" == "$GEN_CHECKSUM" ]
-  then
-    print "Log script is present."
-  else
-    print "Updating log script."
-    generate_log_script > "$C_HOME/bin/logs"
-  fi
-else
-  print "Creating log script."
-  generate_log_script > "$C_HOME/bin/logs"
-fi
-
-ensure_fileowner "$C_HOME/bin/logs"
-ensure_filemode "$C_HOME/bin/logs" 750
-
 function generate_indexed_log_script() {
   cat <<EOF
 #! /usr/bin/env bash
+# $MANAGED
 
 # Tail journalctl logs for the current user.
 echo "Displaying logs. Press CTRL+C to quit."
@@ -322,31 +304,11 @@ journalctl -f | grep indexed
 EOF
 }
 
-# Ensure that indexed log script is present.
-if [ -f "$C_HOME/bin/logs-indexed" ]
-then
-  FILE_CHECKSUM=$(md5sum "$C_HOME/bin/logs-indexed" | cut -f1 -d' ')
-  GEN_CHECKSUM=$(generate_indexed_log_script | md5sum | cut -f1 -d' ')
-
-  # Test if file needs to be updated.
-  if [ "$FILE_CHECKSUM" == "$GEN_CHECKSUM" ]
-  then
-    print "Indexed log script is present."
-  else
-    print "Updating indexed log script."
-    generate_log_script > "$C_HOME/bin/logs-indexed"
-  fi
-else
-  print "Creating indexed log script."
-  generate_indexed_log_script > "$C_HOME/bin/logs-indexed"
-fi
-
-ensure_fileowner "$C_HOME/bin/logs-indexed"
-ensure_filemode "$C_HOME/bin/logs-indexed" 750
-
 function generate_unjail_script() {
   cat <<EOF
 #! /usr/bin/env bash
+# $MANAGED
+
 $C_HOME/bin/$C_BINARY tx slashing unjail \
     --from $MONIKER \
     --yes \
@@ -354,56 +316,111 @@ $C_HOME/bin/$C_BINARY tx slashing unjail \
 EOF
 }
 
-# Ensure that unslash script is present.
-if [ -f "$C_HOME/bin/unjail" ]
-then
-  FILE_CHECKSUM=$(md5sum "$C_HOME/bin/unjail" | cut -f1 -d' ')
-  GEN_CHECKSUM=$(generate_unjail_script | md5sum | cut -f1 -d' ')
-
-  # Test if file needs to be updated.
-  if [ "$FILE_CHECKSUM" == "$GEN_CHECKSUM" ]
-  then
-    print "Unjail script is present."
-  else
-    print "Updating unjail script."
-    generate_log_script > "$C_HOME/bin/unjail"
-  fi
-else
-  print "Creating unjail script."
-  generate_unjail_script > "$C_HOME/bin/unjail"
-fi
-
-ensure_fileowner "$C_HOME/bin/unjail"
-ensure_filemode "$C_HOME/bin/unjail" 750
-
 function generate_show_node_id_script() {
   cat <<EOF
 #! /usr/bin/env bash
+# $MANAGED
+
 $C_HOME/bin/$C_BINARY tendermint show-node-id
 EOF
 }
 
-# Ensure that show-node-id script is present.
-if [ -f "$C_HOME/bin/show-node-id" ]
+function generate_create_wallet_script() {
+  cat <<EOF
+#! /usr/bin/env bash
+# $MANAGED
+
+$C_HOME/bin/$C_BINARY keys add $KEYNAME --keyring-backend file
+EOF
+}
+
+function generate_create_validator_script() {
+  cat <<EOF
+#! /usr/bin/env bash
+# $MANAGED
+
+$C_HOME/bin/$C_BINARY tx staking create-validator \\
+    --commission-max-change-rate "$COMMISSION_MAX_CHANGE_RATE" \\
+    --commission-max-rate "$COMMISSION_MAX_RATE" \\
+    --commission-rate "$COMMISSION_RATE" \\
+    --amount ${AMOUNT}$DENOM \\
+    --pubkey $($C_HOME/bin/$C_BINARY tendermint show-validator) \\
+    --website "$WEBSITE" \\
+    --details "$DETAILS" \\
+    --security-contact "$SECURITY_CONTACT" \\
+    --moniker "$MONIKER" \\
+    --chain-id $C_CHAIN_ID \\
+    --min-self-delegation "1000" \\
+    --fees "${FEES}$C_DENOM" \\
+    --from $KEYFILE \\
+    --yes
+EOF
+}
+
+function script_template() {
+  SCRIPT="$1"
+  GENERATE_FUNCTION="$2"
+
+  if [ -f "$C_HOME/bin/$SCRIPT" ]
+  then
+    FILE_CHECKSUM=$(md5sum "$C_HOME/bin/$SCRIPT" | cut -f1 -d' ')
+    GEN_CHECKSUM=$($GENERATE_FUNCTION | md5sum | cut -f1 -d' ')
+
+    # Test if file needs to be updated.
+    if [ "$FILE_CHECKSUM" == "$GEN_CHECKSUM" ]
+    then
+      print "Script $SCRIPT is present."
+    else
+      print "Updating script $SCRIPT."
+      $GENERATE_FUNCTION > "$C_HOME/bin/$SCRIPT"
+    fi
+  else
+    print "Creating script $SCRIPT."
+    $GENERATE_FUNCTION > "$C_HOME/bin/$SCRIPT"
+  fi
+
+  ensure_fileowner "$C_HOME/bin/$SCRIPT"
+  ensure_filemode "$C_HOME/bin/$SCRIPT" 750
+}
+
+script_template "create_validator" "generate_create_validator_script"
+script_template "create_wallet" "generate_create_wallet_script"
+script_template "logs" "generate_log_script"
+script_template "logs-indexed" "generate_indexed_log_script"
+script_template "show-node-id" "generate_show_node_id_script"
+script_template "unjail" "generate_unjail_script"
+
+function generate_list_wallet_script(){
+  cat <<EOF
+#! /usr/bin/env bash
+# $MANAGED
+
+$C_HOME/bin/$C_BINARY keys list
+EOF
+}
+
+# Ensure that create_validator script is present.
+if [ -f "$C_HOME/bin/list_wallet" ]
 then
-  FILE_CHECKSUM=$(md5sum "$C_HOME/bin/show-node-id" | cut -f1 -d' ')
-  GEN_CHECKSUM=$(generate_show_node_id_script | md5sum | cut -f1 -d' ')
+  FILE_CHECKSUM=$(md5sum "$C_HOME/bin/list_wallet" | cut -f1 -d' ')
+  GEN_CHECKSUM=$(generate_list_wallet_script | md5sum | cut -f1 -d' ')
 
   # Test if file needs to be updated.
   if [ "$FILE_CHECKSUM" == "$GEN_CHECKSUM" ]
   then
-    print "show-node-id script is present."
+    print "list_wallet script is present."
   else
-    print "Updating show-node-id script."
-    generate_log_script > "$C_HOME/bin/show-node-id"
+    print "Updating list_wallet script."
+    generate_list_wallet_script > "$C_HOME/bin/list_wallet"
   fi
 else
-  print "Creating show-node-id script."
-  generate_show_node_id_script > "$C_HOME/bin/show-node-id"
+  print "Creating list_wallet script."
+  generate_list_wallet_script > "$C_HOME/bin/list_wallet"
 fi
 
-ensure_fileowner "$C_HOME/bin/show-node-id"
-ensure_filemode "$C_HOME/bin/show-node-id" 750
+ensure_fileowner "$C_HOME/bin/list_wallet"
+ensure_filemode "$C_HOME/bin/list_wallet" 750
+
 
 # Ensure staging directory is present.
 if [ -d "$C_HOME/staging" ]
@@ -443,6 +460,7 @@ ensure_filemode "$C_HOME/bin/$C_BINARY" 750
 
 function generate_service_file() {
   cat <<EOF
+# $MANAGED
 [Unit]
 Description=Vidulum Validator
 After=network.target
@@ -650,3 +668,6 @@ else
   print "Restarting service."
   systemctl restart "$C_SERVICE"
 fi
+
+# Let the user know that we are done.
+print "Installation completed successfully."
