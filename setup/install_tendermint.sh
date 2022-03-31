@@ -7,7 +7,7 @@ function print() {
 
 function error() {
   # This function prints an error message and exits the script.
-  echo -e "\nERROR: $@"
+  echo -e "\nERROR: $@\n"
   exit 1
 }
 
@@ -114,11 +114,14 @@ on a vanilla installation of Ubuntu Linux 20.04 LTS.
 
 Usage is on your own risk!
 
-Donate to the developer if your like this software:
- BTC:   1JRB94g5LMrkhK6hLPXHiqkjVgBz7ppBVW
- FLUX:  t1a5RJWkrJ3V9AGgE6PHaeLbnJas69KZ3w8
- VDL:   vdl10s993kx6mxc5uj7zrhrs62ryf4723qecvs4lfl
- BTCZ:  t1c3MEHWr3fkM1cZScJbXeS5p3NvA4N2Btx
+Donate to the developer if you like this software:
+  BTC:   1JRB94g5LMrkhK6hLPXHiqkjVgBz7ppBVW
+  FLUX:  t1a5RJWkrJ3V9AGgE6PHaeLbnJas69KZ3w8
+  VDL:   vdl10s993kx6mxc5uj7zrhrs62ryf4723qecvs4lfl
+  BTCZ:  t1c3MEHWr3fkM1cZScJbXeS5p3NvA4N2Btx
+
+
+Join us on Discord: https://discord.gg/3pTBRdq9
 
 
 EOF
@@ -148,7 +151,7 @@ function print_menu() {
 }
 
 # Set the initial message that we display to the user.
-MESSAGE="Select a chain or press CRTL+C to abort: "
+MESSAGE="Select a chain or press CTRL+C to abort: "
 ID=""
 
 # Loop until the user has givin us valid input.
@@ -185,6 +188,32 @@ C_URL=$(jq -r ".chains[$ID].url.$(uname -m)" $CONFIGFILE)
 C_GENESIS=$(jq -r ".chains[$ID].genesis" $CONFIGFILE)
 C_SEEDS=$(jq -r ".chains[$ID].seeds" $CONFIGFILE)
 C_PERSISTENT_PEERS=$(jq -r ".chains[$ID].persistent_peers" $CONFIGFILE)
+
+# Check if there are extra profiles for the selected chain.
+if [ $(jq -r ".chains[$ID].profiles[0].name" $CONFIGFILE) != "null" ]
+then
+  COUNTER=0
+  echo -e "\n[ Available Profiles ]"
+  for PROFILE in $(jq -r ".chains[$ID].profiles[].name" $CONFIGFILE)
+  do
+    ALIAS=$(jq -r ".chains[$ID].profiles[$COUNTER].alias" $CONFIGFILE)
+    print "$COUNTER) $ALIAS"
+    COUNTER=$((COUNTER + 1))
+  done
+  echo ""
+
+  MESSAGE="Select a profile or press CTRL+C to abort: "
+  read -p "$MESSAGE" USERINPUT
+
+  if [ $(jq -r ".chains[$ID].profiles[$USERINPUT].name" $CONFIGFILE) == "null" ]
+  then
+    error "Invalid input. Please restart the script and try again."
+  else
+    PROFILE="$USERINPUT"
+  fi
+else
+  PROFILE=""
+fi
 
 # Ensure that the URL for our platform is valid.
 if [ "C_URL" == "null" ]
@@ -531,13 +560,80 @@ else
   RESTART_SERVICE=1
 fi
 
+# Test if an profile is available for this chain.
+if [ -n "$PROFILE" ]
+then
+  PROFILE_ALIAS=$(jq -r ".chains[$ID].profiles[$PROFILE].alias" $CONFIGFILE)
+  print "Processing profile $PROFILE_ALIAS"
+
+  if [ "$(jq -r \".chains[$ID].profiles[$PROFILE].app\" $CONFIGFILE)" != "[]" ]
+  then
+    print "Processing options for app.toml"
+    COUNTER=0
+    ELEMENTS=$(jq ".chains[$ID].profiles[$PROFILE].app | length" $CONFIGFILE)
+    while [ $COUNTER -lt $ELEMENTS ]
+    do
+      KEY=$(jq -r ".chains[$ID].profiles[$PROFILE].app[$COUNTER].key" $CONFIGFILE)
+      VALUE=$(jq -r ".chains[$ID].profiles[$PROFILE].app[$COUNTER].value" $CONFIGFILE)
+      TYPE=$(jq -r ".chains[$ID].profiles[$PROFILE].app[$COUNTER].type" $CONFIGFILE)
+      if [ "$TYPE" == "null" ]
+      then
+	if [ "$(grep ^$KEY $C_HOME/$C_WORKDIR/config/app.toml)" != "$KEY = \"$VALUE\"" ]
+	then
+	  print "Setting $KEY to $VALUE"
+	  sed -i -e "s/^$KEY =.*/$KEY = \"$VALUE\"/" $C_HOME/$C_WORKDIR/config/app.toml
+	  RESTART_SERVICE=1
+	fi
+      else
+	if [ "$(grep ^$KEY $C_HOME/$C_WORKDIR/config/app.toml)" != "$KEY = $VALUE" ]
+        then
+          print "Setting $KEY to $VALUE"
+  	  sed -i -e "s/^$KEY =.*/$KEY = $VALUE/" $C_HOME/$C_WORKDIR/config/app.toml
+	  RESTART_SERVICE=1
+	fi
+      fi
+      COUNTER=$(expr $COUNTER + 1)
+    done
+  fi
+
+  if [ "$(jq -r \".chains[$ID].profiles[$PROFILE].config\" $CONFIGFILE)" != "[]" ]
+  then
+    print "Processing options for config.toml"
+    COUNTER=0
+    ELEMENTS=$(jq ".chains[$ID].profiles[$PROFILE].config | length" $CONFIGFILE)
+    while [ $COUNTER -lt $ELEMENTS ]
+    do
+      KEY=$(jq -r ".chains[$ID].profiles[$PROFILE].config[$COUNTER].key" $CONFIGFILE)
+      VALUE=$(jq -r ".chains[$ID].profiles[$PROFILE].config[$COUNTER].value" $CONFIGFILE)
+      TYPE=$(jq -r ".chains[$ID].profiles[$PROFILE].config[$COUNTER].type" $CONFIGFILE)
+      if [ "$TYPE" == "null" ]
+      then
+	if [ "$(grep ^$KEY $C_HOME/$C_WORKDIR/config/config.toml)" != "$KEY = \"$VALUE\"" ]
+        then
+          print "Setting $KEY to $VALUE"
+          sed -i -e "s/^$KEY =.*/$KEY = \"$VALUE\"/" $C_HOME/$C_WORKDIR/config/config.toml
+	  RESTART_SERVICE=1
+	fi
+      else
+	if [ "$(grep ^$KEY $C_HOME/$C_WORKDIR/config/config.toml)" != "$KEY = $VALUE" ]
+        then
+          print "Setting $KEY to $VALUE"
+          sed -i -e "s/^$KEY =.*/$KEY = $VALUE/" $C_HOME/$C_WORKDIR/config/config.toml
+	  RESTART_SERVICE=1
+	fi
+      fi
+      COUNTER=$(expr $COUNTER + 1)
+    done
+  fi
+fi
+
 # Ensure service is enabled.
-if systemctl is-enabled $C_SERVICE &> /dev/null
+if systemctl is-enabled "$C_SERVICE" &> /dev/null
 then
   print "Service is enabled."
 else
   print "Enabling service."
-  systemctl enable $C_SERVICE
+  systemctl enable "$C_SERVICE"
 fi
 
 # Ensure service is started.
@@ -548,9 +644,9 @@ then
     print "Service is started."
   else
     print "Starting service."
-    systemctl start $C_SERVICE
+    systemctl start "$C_SERVICE"
   fi
 else
   print "Restarting service."
-  systemctl restart $C_SERVICE
+  systemctl restart "$C_SERVICE"
 fi

@@ -38,7 +38,51 @@
         "x86_64": "https://github.com/vidulum/mainnet/releases/download/v1.0.0/vidulum_linux_amd64.tar.gz",
         "arm64": "https://github.com/vidulum/mainnet/releases/download/v1.0.0/vidulum_linux_arm64.tar.gz"
       },
-      "genesis": "https://raw.githubusercontent.com/vidulum/mainnet/main/genesis.json"
+      "genesis": "https://raw.githubusercontent.com/vidulum/mainnet/main/genesis.json",
+      "profiles": [
+	{
+          "name": "default",
+	  "alias": "Default profile",
+	  "app": [],
+	  "config": []
+	},
+	{
+	  "name": "state-sync",
+	  "alias": "State Sync with pruning",
+	  "app": [
+            {
+	      "key": "pruning",
+	      "value": "everything"
+	    },
+	    {
+	      "key": "min-retain-blocks",
+	      "value": 210000
+	    }
+	  ],
+	  "config": [
+	    {
+	      "key": "enable",
+	      "value": "true"
+            },
+	    {
+              "key": "rpc_servers",
+              "value": "https"
+            },
+	    {
+	      "key": "trust_height",
+	      "value": "2335500"
+	    },
+	    {
+	      "key": "trust_hash",
+	      "value": "68F8048DF360764E4845DCA412C459ECA8BDDB7483CADBBDC9CC598F23CFE495"
+	    },
+	    {
+	      "key": "trust_period",
+	      "value": "336h0m0s"
+	    }
+	  ]
+	}
+      ]
     },
     {
       "name": "vidulum-test",
@@ -62,7 +106,53 @@
         "x86_64": "https://github.com/vidulum/testvidulum/releases/download/v1.0/testvidulum_linux_amd64.tar.gz",
         "arm64": "https://github.com/vidulum/testvidulum/releases/download/v1.0/testvidulum_linux_arm64.tar.gz"
       },
-      "genesis": "https://github.com/vidulum/testvidulum/releases/download/v1.0/genesis.json"
+      "genesis": "https://github.com/vidulum/testvidulum/releases/download/v1.0/genesis.json",
+      "profiles": [
+        {
+          "name": "default",
+          "alias": "Default profile",
+          "app": [],
+          "config": []
+        },
+        {
+          "name": "state-sync",
+          "alias": "State Sync with pruning",
+          "app": [
+            {
+              "key": "pruning",
+              "value": "everything"
+            },
+            {
+              "key": "min-retain-blocks",
+              "value": 210000,
+	      "type": "int"
+            }
+          ],
+          "config": [
+            {
+              "key": "enable",
+              "value": "true"
+            },
+	    {
+	      "key": "rpc_servers",
+	      "value": "https:\\/\\/trpc.rpc.erialos.me:443,https:\\/\\/mainnet-rpc.vidulum.app:443"
+	    },
+            {
+              "key": "trust_height",
+              "value": 2335500,
+	      "type": "int"
+            },
+            {
+              "key": "trust_hash",
+              "value": "68F8048DF360764E4845DCA412C459ECA8BDDB7483CADBBDC9CC598F23CFE495"
+            },
+            {
+              "key": "trust_period",
+              "value": "336h0m0s"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "beezee",
