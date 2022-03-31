@@ -4,14 +4,14 @@
     "version": "v0.0.1"
   },
   "validator": {
-    "commission-max-change-rate": 0.30,
-    "commission-max-rate": 0.30,
-    "commission-rate": 0.05,
+    "commission_max_change_rate": 0.30,
+    "commission_max_rate": 0.30,
+    "commission_rate": 0.05,
     "amount": 2500000,
     "website": "https://YOUR.WEBSITE.URL/",
     "details": "YOUR VALIDATOR DESCRIPTION",
-    "security-contact": "YOUR@EMAIL.ADDRESS",
-    "moniker": "YOUR VALIDATOR NAME",
+    "security_contact": "YOUR@EMAIL.ADDRESS",
+    "moniker": "YOUR_VALIDATOR_NAME",
     "fees": "20000",
     "keyname": "VALIDATOR_KEY"
   },
