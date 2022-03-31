@@ -4,7 +4,16 @@
     "version": "v0.0.1"
   },
   "validator": {
-    "moniker": "MONIKER"
+    "commission-max-change-rate": 0.30,
+    "commission-max-rate": 0.30,
+    "commission-rate": 0.05,
+    "amount": 2500000,
+    "website": "https://YOUR.WEBSITE.URL/",
+    "details": "YOUR VALIDATOR DESCRIPTION",
+    "security-contact": "YOUR@EMAIL.ADDRESS",
+    "moniker": "YOUR VALIDATOR NAME",
+    "fees": "20000",
+    "keyname": "VALIDATOR_KEY"
   },
   "chains": [
     {
